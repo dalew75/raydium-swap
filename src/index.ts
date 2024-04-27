@@ -1,13 +1,13 @@
 import RaydiumSwap from './RaydiumSwap'
 import { Transaction, VersionedTransaction, LAMPORTS_PER_SOL } from '@solana/web3.js'
 
-const [quoteMint, tokenAAmount] = process.argv.slice(2);
+let [tokenAAmountString, quoteMint] = process.argv.slice(2);
 
 const swap = async (tokenMint: string, tokenAAmount: number) => {
-  const executeSwap = false // Change to true to execute swap
+  const executeSwap = true // Change to true to execute swap
   const useVersionedTransaction = true // Use versioned transaction
 
-  const baseMint = 'So11111111111111111111111111111111111111112' // e.g. SOLANA mint address
+  let baseMint = 'So11111111111111111111111111111111111111112' // e.g. SOLANA mint address
 
   const raydiumSwap = new RaydiumSwap(process.env.RPC_URL, process.env.WALLET_PRIVATE_KEY);
   const publicKey = raydiumSwap.wallet.publicKey.toBase58();
@@ -20,13 +20,19 @@ const swap = async (tokenMint: string, tokenAAmount: number) => {
   const endTime = Date.now();
   console.log(`Loaded pool keys in ${endTime - startTime} milliseconds`);
 
+  if ( quoteMint.toLowerCase() === 'sol' ) {
+    const quoteMintTemp = `${quoteMint}`;
+    quoteMint = baseMint; // WSOL address
+    baseMint = quoteMintTemp;
+  }
+
   // Trying to find pool info in the json we loaded earlier and by comparing baseMint and tokenBAddress
   let poolInfo = raydiumSwap.findPoolInfoForTokens(baseMint, quoteMint)
 
   if (!poolInfo) poolInfo = await raydiumSwap.findRaydiumPoolInfo(baseMint, quoteMint)
 
   if (!poolInfo) {
-    throw new Error("Couldn't find the pool info")
+    throw new Error("Couldn't find the pool info");
   }
 
   console.log('Found pool info', poolInfo)
@@ -35,10 +41,10 @@ const swap = async (tokenMint: string, tokenAAmount: number) => {
     quoteMint,
     tokenAAmount,
     poolInfo,
-    0.0005 * LAMPORTS_PER_SOL, // Prioritization fee, now set to (0.0005 SOL)
+    0.001 * LAMPORTS_PER_SOL, // Prioritization fee, now set to (0.0005 SOL)
     useVersionedTransaction,
     'in',
-    15 // Slippage
+    300 // Slippage
   )
 
   if (executeSwap) {
@@ -56,4 +62,4 @@ const swap = async (tokenMint: string, tokenAAmount: number) => {
   }
 }
 
-swap(quoteMint, parseFloat(tokenAAmount));
+swap(quoteMint, parseFloat(tokenAAmountString));
