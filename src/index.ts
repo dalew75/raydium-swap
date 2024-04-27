@@ -4,7 +4,7 @@ import { Transaction, VersionedTransaction, LAMPORTS_PER_SOL } from '@solana/web
 const [quoteMint, tokenAAmount] = process.argv.slice(2);
 
 const swap = async (tokenMint: string, tokenAAmount: number) => {
-  const executeSwap = true // Change to true to execute swap
+  const executeSwap = false // Change to true to execute swap
   const useVersionedTransaction = true // Use versioned transaction
 
   const baseMint = 'So11111111111111111111111111111111111111112' // e.g. SOLANA mint address
