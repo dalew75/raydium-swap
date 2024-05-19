@@ -10,18 +10,9 @@ const baseMint = 'So11111111111111111111111111111111111111112' // e.g. SOLANA mi
 let raydiumSwap: RaydiumSwap;
 
 const getPoolInfo = async (tokenMint: string) => {
-  const raydiumSwap = new RaydiumSwap(process.env.RPC_URL, process.env.WALLET_PRIVATE_KEY);
-  const publicKey = raydiumSwap.wallet.publicKey.toBase58();
-  console.log(`Raydium swap initialized, using RPC URL: ${process.env.RPC_URL} and wallet: ${publicKey}`);
-
-  // Loading with pool keys from https://api.raydium.io/v2/sdk/liquidity/mainnet.json
-  const startTime = Date.now();
-  await raydiumSwap.loadPoolKeys();
-  console.log(`Loaded pool keys in ${Date.now() - startTime} milliseconds`);
-
   const startTime2 = Date.now();
   let poolInfo = raydiumSwap.findPoolInfoForTokens(baseMint, tokenMint);
-  if ( poolInfo ) {
+  if (poolInfo) {
     console.log(`Loaded pool info from pools.json in ${Date.now() - startTime2} milliseconds`);
   }
   else {
@@ -32,7 +23,7 @@ const getPoolInfo = async (tokenMint: string) => {
   return poolInfo;
 }
 
-async function initStuff() {
+async function initRaydium() {
   raydiumSwap = new RaydiumSwap(process.env.RPC_URL, process.env.WALLET_PRIVATE_KEY);
   const publicKey = raydiumSwap.wallet.publicKey.toBase58();
   console.log(`Raydium swap initialized, using RPC URL: ${process.env.RPC_URL} and wallet: ${publicKey}`);
@@ -41,13 +32,15 @@ async function initStuff() {
   const startTime = Date.now();
   await raydiumSwap.loadPoolKeys();
   console.log(`Loaded pool keys in ${Date.now() - startTime} milliseconds`);
+}
 
+async function initNatsListener() {
   await initNats();
   subscribe('swap', async (msg) => {
     const data = JSON.parse(msg);
     console.log('Received message:', data);
-    swap(data.mint, data.amount, data.dynamic);
-});
+    swap(data.mint, data.amount, data.execute);
+  });
 }
 
 
@@ -83,11 +76,11 @@ const swap = async (tokenMint: string, tokenAAmount: number, executeSwap: boolea
 
 
 (async () => {
-  await initStuff();
-  if ( tokenAAmountString && quoteMint ) {
+  await initRaydium();
+  if (tokenAAmountString && quoteMint) {
     swap(quoteMint, parseFloat(tokenAAmountString), execute === 'true');
   }
   else {
-    
+    await initNatsListener();
   }
 })();
