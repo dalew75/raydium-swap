@@ -10,29 +10,20 @@ const baseMint = 'So11111111111111111111111111111111111111112' // e.g. SOLANA mi
 let raydiumSwap: RaydiumSwap;
 
 const getPoolInfo = async (tokenMint: string) => {
-  const raydiumSwap = new RaydiumSwap(process.env.RPC_URL, process.env.WALLET_PRIVATE_KEY);
-  const publicKey = raydiumSwap.wallet.publicKey.toBase58();
-  console.log(`Raydium swap initialized, using RPC URL: ${process.env.RPC_URL} and wallet: ${publicKey}`);
-
-  // Loading with pool keys from https://api.raydium.io/v2/sdk/liquidity/mainnet.json
   const startTime = Date.now();
-  await raydiumSwap.loadPoolKeys();
-  console.log(`Loaded pool keys in ${Date.now() - startTime} milliseconds`);
-
-  const startTime2 = Date.now();
   let poolInfo = raydiumSwap.findPoolInfoForTokens(baseMint, tokenMint);
   if ( poolInfo ) {
-    console.log(`Loaded pool info from pools.json in ${Date.now() - startTime2} milliseconds`);
+    console.log(`Loaded pool info from pools.json in ${Date.now() - startTime} milliseconds`);
   }
   else {
-    const startTime3 = Date.now();
+    const startTime2 = Date.now();
     poolInfo = await raydiumSwap.findRaydiumPoolInfo(baseMint, tokenMint);
-    console.log(`Loaded pool info on the spot in ${Date.now() - startTime3} milliseconds`);
+    console.log(`Loaded pool info on the spot in ${Date.now() - startTime2} milliseconds`);
   }
   return poolInfo;
 }
 
-async function initStuff() {
+async function loadRaydium() {
   raydiumSwap = new RaydiumSwap(process.env.RPC_URL, process.env.WALLET_PRIVATE_KEY);
   const publicKey = raydiumSwap.wallet.publicKey.toBase58();
   console.log(`Raydium swap initialized, using RPC URL: ${process.env.RPC_URL} and wallet: ${publicKey}`);
@@ -41,24 +32,29 @@ async function initStuff() {
   const startTime = Date.now();
   await raydiumSwap.loadPoolKeys();
   console.log(`Loaded pool keys in ${Date.now() - startTime} milliseconds`);
-
+}
+async function initNatsListener() {
   await initNats();
   subscribe('swap', async (msg) => {
     const data = JSON.parse(msg);
     console.log('Received message:', data);
-    swap(data.mint, data.amount, data.dynamic);
+    if ( data.type === 'buy' ) {
+        swap(data.quote, data.amount, data.execute);
+    }
+    else {
+        swap(baseMint, data.amount, data.execute);
+    }
 });
 }
 
 
-const swap = async (tokenMint: string, tokenAAmount: number, executeSwap: boolean = false) => {
-  console.log(`Swapping ${tokenAAmount} of ${tokenMint}, executeSwap=${executeSwap}`);
-  let poolInfo = await getPoolInfo(tokenMint);
-  console.log('Pool info:', poolInfo);
+const swap = async (toTokenMint: string, amount: number, executeSwap: boolean = false) => {
+  console.log(`Swapping ${amount} of ${toTokenMint}, executeSwap=${executeSwap}`);
+  let poolInfo = await getPoolInfo(toTokenMint);
 
   const tx = await raydiumSwap.getSwapTransaction(
-    tokenMint,
-    tokenAAmount,
+    toTokenMint,
+    amount,
     poolInfo,
     0.001 * LAMPORTS_PER_SOL, // Prioritization fee, now set to (0.0005 SOL)
     useVersionedTransaction,
@@ -81,13 +77,12 @@ const swap = async (tokenMint: string, tokenAAmount: number, executeSwap: boolea
   }
 }
 
-
 (async () => {
-  await initStuff();
+  await loadRaydium();
   if ( tokenAAmountString && quoteMint ) {
     swap(quoteMint, parseFloat(tokenAAmountString), execute === 'true');
   }
   else {
-    
+    initNatsListener();
   }
 })();
