@@ -2,9 +2,6 @@ import 'dotenv/config';
 import RaydiumSwap from './RaydiumSwap'
 import { Transaction, VersionedTransaction, LAMPORTS_PER_SOL } from '@solana/web3.js'
 import { subscribe, initNats } from './nats';
-import { getPoolID } from './pools';
-import { Commitment, PublicKey, Connection, AccountInfo } from '@solana/web3.js';
-import { LIQUIDITY_STATE_LAYOUT_V4 } from "@raydium-io/raydium-sdk";
 
 let [quoteMint, tokenAAmountString] = process.argv.slice(2);
 
@@ -20,7 +17,7 @@ async function loadRaydium() {
 
   // Loading with pool keys from https://api.raydium.io/v2/sdk/liquidity/mainnet.json
   poolKeys = await raydiumSwap.loadPoolKeys()
-
+  
   const endTime = Date.now();
   console.log(`Loaded ${poolKeys.length} pool keys in ${endTime - startTime} milliseconds`);
 
@@ -50,7 +47,7 @@ async function initNatsListener(): Promise<void> {
 
 const swap = async (tokenMint: string, baseMint: string, tokenAAmount: number) => {
   console.log(`Swapping ${tokenAAmount} of ${baseMint} for ${tokenMint}`);
-  const executeSwap = true // Change to true to execute swap
+  const executeSwap = false // Change to true to execute swap
   const useVersionedTransaction = true // Use versioned transaction
 
   const publicKey = raydiumSwap.wallet.publicKey.toBase58();
@@ -104,25 +101,9 @@ const swap = async (tokenMint: string, baseMint: string, tokenAAmount: number) =
 }
 
 (async () => {
-  //loadRaydium();
+  loadRaydium();
   if (quoteMint && tokenAAmountString) {
-    const connection = new Connection(process.env.HTTP_URL || '', {
-      wsEndpoint: process.env.WSS_URL || '',
-      // below is causing get transaction to fail
-      // httpHeaders: { "x-session-hash": SESSION_HASH }
-    });
-    const poolId = await getPoolID(quoteMint, connection);
-    console.log(`Pool ID: ${poolId}`);
-    const accountInfo = await connection.getAccountInfo(new PublicKey(quoteMint));  
-    console.log(`Account Info:`,accountInfo);
-    if (accountInfo && accountInfo.data.length > 0) {
-      const decodedData = LIQUIDITY_STATE_LAYOUT_V4.decode(Buffer.from(accountInfo.data));
-      console.log('Decoded account data:', decodedData);
-      console.log('Decoded account data baseMint:', decodedData.baseMint.toString());
-      // Use the decoded data as needed
-    }
-
-    //swap(quoteMint, 'So11111111111111111111111111111111111111112', parseFloat(tokenAAmountString));
+    swap(quoteMint, 'So11111111111111111111111111111111111111112', parseFloat(tokenAAmountString));
 
   }
   else {
