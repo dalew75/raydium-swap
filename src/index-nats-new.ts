@@ -39,24 +39,28 @@ async function initNatsListener() {
   subscribe('swap', async (msg) => {
     const data = JSON.parse(msg);
     console.log('Received message:', data);
-    swap(data.mint, data.amount, data.execute);
+    swap(data.type,data.mint, data.amount, data.slippage, data.execute);
   });
 }
 
 
-const swap = async (tokenMint: string, tokenAAmount: number, executeSwap: boolean = false) => {
-  console.log(`Swapping ${tokenAAmount} of ${tokenMint}, executeSwap=${executeSwap}`);
+const swap = async (type:string, tokenMint: string, amount: number, slippage: number, executeSwap: boolean = false) => {
+  console.log(`Swapping ${amount} of ${tokenMint}, executeSwap=${executeSwap}`);
   let poolInfo = await getPoolInfo(tokenMint);
   console.log('Pool info:', poolInfo);
+  
+  const mintDesired = type === 'buy' ? tokenMint : baseMint;
+
+  console.log(`${type}: ${amount} ${mintDesired}`);
 
   const tx = await raydiumSwap.getSwapTransaction(
-    tokenMint,
-    tokenAAmount,
+    mintDesired,
+    amount,
     poolInfo,
-    0.001 * LAMPORTS_PER_SOL, // Prioritization fee, now set to (0.0005 SOL)
+    0.0005 * LAMPORTS_PER_SOL, // Prioritization fee, now set to (0.0005 SOL)
     useVersionedTransaction,
     'in',
-    300 // Slippage
+    slippage // Slippage
   )
 
   if (executeSwap) {
@@ -64,7 +68,7 @@ const swap = async (tokenMint: string, tokenAAmount: number, executeSwap: boolea
       ? await raydiumSwap.sendVersionedTransaction(tx as VersionedTransaction)
       : await raydiumSwap.sendLegacyTransaction(tx as Transaction)
 
-    console.log(`https://solscan.io/tx/${txid}`)
+    console.log(`https://solscan.io/tx/${txid}`);
   } else {
     const simRes = useVersionedTransaction
       ? await raydiumSwap.simulateVersionedTransaction(tx as VersionedTransaction)
@@ -78,7 +82,7 @@ const swap = async (tokenMint: string, tokenAAmount: number, executeSwap: boolea
 (async () => {
   await initRaydium();
   if (tokenAAmountString && quoteMint) {
-    swap(quoteMint, parseFloat(tokenAAmountString), execute === 'true');
+    swap('buy',quoteMint, parseFloat(tokenAAmountString), 15, execute === 'true');
   }
   else {
     await initNatsListener();
