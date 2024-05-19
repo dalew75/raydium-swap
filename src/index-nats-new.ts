@@ -2,35 +2,39 @@ import 'dotenv/config';
 import RaydiumSwap from './RaydiumSwap'
 import { Transaction, VersionedTransaction, LAMPORTS_PER_SOL } from '@solana/web3.js'
 
-let [tokenAAmountString, quoteMint] = process.argv.slice(2);
+let [tokenAAmountString, quoteMint, dynamic] = process.argv.slice(2);
+const executeSwap = false // Change to true to execute swap
+const useVersionedTransaction = true // Use versioned transaction
+const baseMint = 'So11111111111111111111111111111111111111112' // e.g. SOLANA mint address
 
-const swap = async (tokenMint: string, tokenAAmount: number) => {
-  const executeSwap = false // Change to true to execute swap
-  const useVersionedTransaction = true // Use versioned transaction
-
-  let baseMint = 'So11111111111111111111111111111111111111112' // e.g. SOLANA mint address
-
+const getPoolInfo = async (tokenMint: string) => {
   const raydiumSwap = new RaydiumSwap(process.env.RPC_URL, process.env.WALLET_PRIVATE_KEY);
   const publicKey = raydiumSwap.wallet.publicKey.toBase58();
   console.log(`Raydium swap initialized, executeSwap=${executeSwap}, using RPC URL: ${process.env.RPC_URL} and wallet: ${publicKey}`);
 
   // Loading with pool keys from https://api.raydium.io/v2/sdk/liquidity/mainnet.json
-  await raydiumSwap.loadPoolKeys()
   const startTime = Date.now();
   await raydiumSwap.loadPoolKeys();
-  const endTime = Date.now();
-  console.log(`Loaded pool keys in ${endTime - startTime} milliseconds`);
+  console.log(`Loaded pool keys in ${Date.now() - startTime} milliseconds`);
 
-  // Trying to find pool info in the json we loaded earlier and by comparing baseMint and tokenBAddress
-  let poolInfo = raydiumSwap.findPoolInfoForTokens(baseMint, tokenMint)
-
-  if (!poolInfo) poolInfo = await raydiumSwap.findRaydiumPoolInfo(baseMint, tokenMint)
-
-  if (!poolInfo) {
-    throw new Error("Couldn't find the pool info");
+  const startTime2 = Date.now();
+  let poolInfo = raydiumSwap.findPoolInfoForTokens(baseMint, tokenMint);
+  if ( poolInfo ) {
+    console.log(`Loaded pool info from pools.json in ${Date.now() - startTime2} milliseconds`);
   }
+  else {
+    const startTime3 = Date.now();
+    poolInfo = await raydiumSwap.findRaydiumPoolInfo(baseMint, tokenMint);
+    console.log(`Loaded pool info on the spot in ${Date.now() - startTime3} milliseconds`);
+  }
+  return poolInfo;
+}
 
-  console.log('Found pool info', poolInfo)
+const swap = async (tokenMint: string, tokenAAmount: number, getPoolInfoDynamically: boolean = false) => {
+  const raydiumSwap = new RaydiumSwap(process.env.RPC_URL, process.env.WALLET_PRIVATE_KEY);
+  const publicKey = raydiumSwap.wallet.publicKey.toBase58();
+  let poolInfo = await getPoolInfo(quoteMint);
+  return; 
 
   const tx = await raydiumSwap.getSwapTransaction(
     tokenMint,
@@ -57,4 +61,4 @@ const swap = async (tokenMint: string, tokenAAmount: number) => {
   }
 }
 
-swap(quoteMint, parseFloat(tokenAAmountString));
+swap(quoteMint, parseFloat(tokenAAmountString), dynamic === 'true');
