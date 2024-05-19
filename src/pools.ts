@@ -1,7 +1,27 @@
 import 'dotenv/config';
 
-import { LIQUIDITY_STATE_LAYOUT_V4 } from "@raydium-io/raydium-sdk";
+import { LIQUIDITY_STATE_LAYOUT_V4, LiquidityPoolKeys, jsonInfo2PoolKeys } from "@raydium-io/raydium-sdk";
 import { Commitment, PublicKey, Connection } from '@solana/web3.js';
+
+export async function getPoolKeys(quoteMint: string): Promise<LiquidityPoolKeys | null> {
+    const connection = new Connection(process.env.HTTP_URL || '', {
+      wsEndpoint: process.env.WSS_URL || '',
+      // below is causing get transaction to fail
+      // httpHeaders: { "x-session-hash": SESSION_HASH }
+    });
+    const poolId = await getPoolID(quoteMint, connection);
+    // console.log(`Pool ID: ${poolId}`);
+    const accountInfo = await connection.getAccountInfo(new PublicKey(poolId));
+    // console.log(`Account Info:`, accountInfo);
+      const decodedData = LIQUIDITY_STATE_LAYOUT_V4.decode(Buffer.from(accountInfo.data));
+      // console.log('Decoded account data:', decodedData);
+      // console.log('Decoded account data baseMint:', decodedData.baseMint.toString());
+      const poolKeysJson = JSON.stringify(jsonInfo2PoolKeys(decodedData));
+      const poolKeys = JSON.parse(poolKeysJson) as LiquidityPoolKeys;
+      // console.log('Pool keys:', poolKeys);
+      return poolKeys;
+    }
+  }
 
 export async function getPoolID(baseString: string, connection: Connection): Promise<string | null> {
     let base = new PublicKey(baseString);
