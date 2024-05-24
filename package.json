@@ -14,6 +14,7 @@
     "@solana/spl-token": "^0.3.11",
     "dotenv": "^16.4.5",
     "nats": "^2.23.0",
+    "nats-wrapper": "file:../../lib/nats-wrapper",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
   },
