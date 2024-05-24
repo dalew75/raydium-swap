@@ -81,6 +81,9 @@ const swap = async (type:string, tokenMint: string, amount: number, slippage: nu
 
 (async () => {
   await initRaydium();
+  // const tokenAccounts = await raydiumSwap.getOwnerTokenAccounts();
+  // console.log('Token accounts:', tokenAccounts);
+  // return;
   if (tokenAAmountString && quoteMint) {
     swap('buy',quoteMint, parseFloat(tokenAAmountString), 15, execute === 'true');
   }
