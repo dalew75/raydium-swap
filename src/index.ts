@@ -27,8 +27,6 @@ const swap = async (tokenMint: string, tokenAAmount: number, getPoolInfoDynamica
     console.log(`Loaded pool info on the spot in ${Date.now() - startTime2} milliseconds`);
   }
 
-  return;
-
   const tx = await raydiumSwap.getSwapTransaction(
     tokenMint,
     tokenAAmount,
@@ -36,7 +34,7 @@ const swap = async (tokenMint: string, tokenAAmount: number, getPoolInfoDynamica
     0.001 * LAMPORTS_PER_SOL, // Prioritization fee, now set to (0.0005 SOL)
     useVersionedTransaction,
     'in',
-    300 // Slippage
+    15 // Slippage
   )
 
   if (executeSwap) {
