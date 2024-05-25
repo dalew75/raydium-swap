@@ -14,7 +14,7 @@ const payer = Keypair.fromSecretKey(SIGNER_WALLET);
 // Now you can use the payer to sign transactions
 console.log('Wallet Public Key:', payer.publicKey.toBase58());
 
-const LOOKUP_TABLE_ADDRESS = new PublicKey("3K2YPv5CfYseHWxyGh3iM3TxaJujUdHeoCGnUC5rULyt"); 
+const LOOKUP_TABLE_ADDRESS = new PublicKey("GfJFNQksmtR3q32K9SRCzv2mxNpmrrbwYoxniC8xfKrn"); 
 
 
 const SOLANA_CONNECTION: Connection = new Connection(process.env.HTTP_URL || '', { wsEndpoint: process.env.WSS_URL || '' });
@@ -26,7 +26,7 @@ async function createAndSendV0Tx(txInstructions: TransactionInstruction[]) {
 
   // Step 2 - Generate Transaction Message
   const messageV0 = new TransactionMessage({
-      payerKey: SIGNER_WALLET.publicKey,
+      payerKey: payer.publicKey,
       recentBlockhash: latestBlockhash.blockhash,
       instructions: txInstructions
   }).compileToV0Message();
@@ -34,7 +34,7 @@ async function createAndSendV0Tx(txInstructions: TransactionInstruction[]) {
   const transaction = new VersionedTransaction(messageV0);
 
   // Step 3 - Sign your transaction with the required `Signers`
-  transaction.sign([SIGNER_WALLET]);
+  transaction.sign([payer]);
   console.log("   ✅ - Transaction Signed");
 
   // Step 4 - Send our v0 transaction to the cluster
@@ -53,25 +53,25 @@ async function createAndSendV0Tx(txInstructions: TransactionInstruction[]) {
 
 async function createLookupTable() {
   // Step 1 - Get a lookup table address and create lookup table instruction
-  const [lookupTableInst, lookupTableAddress] =
-      AddressLookupTableProgram.createLookupTable({
-          authority: SIGNER_WALLET.publicKey,
-          payer: SIGNER_WALLET.publicKey,
-          recentSlot: await SOLANA_CONNECTION.getSlot(),
-      });
+  const [lookupTableInstruction, lookupTableAddress] =
+    AddressLookupTableProgram.createLookupTable({
+      authority: payer.publicKey,
+      payer: payer.publicKey,
+      recentSlot: await SOLANA_CONNECTION.getSlot(),
+    });
 
   // Step 2 - Log Lookup Table Address
   console.log("Lookup Table Address:", lookupTableAddress.toBase58());
 
   // Step 3 - Generate a transaction and send it to the network
-  createAndSendV0Tx([lookupTableInst]);
+  createAndSendV0Tx([lookupTableInstruction]);
 }
 
 async function addAddressesToTable() {
   // Step 1 - Create Transaction Instruction
   const addAddressesInstruction = AddressLookupTableProgram.extendLookupTable({
-      payer: SIGNER_WALLET.publicKey,
-      authority: SIGNER_WALLET.publicKey,
+      payer: payer.publicKey,
+      authority: payer.publicKey,
       lookupTable: LOOKUP_TABLE_ADDRESS,
       addresses: [
           Keypair.generate().publicKey,
@@ -114,7 +114,7 @@ async function compareTxSize() {
       const address = lookupTable.state.addresses[i];
       txInstructions.push(
           SystemProgram.transfer({
-              fromPubkey: SIGNER_WALLET.publicKey,
+              fromPubkey: payer.publicKey,
               toPubkey: address,
               lamports: 0.0001 * LAMPORTS_PER_SOL,
           })
@@ -127,21 +127,21 @@ async function compareTxSize() {
 
   // Step 4 - Generate and sign a transaction that uses a lookup table
   const messageWithLookupTable = new TransactionMessage({
-      payerKey: SIGNER_WALLET.publicKey,
+      payerKey: payer.publicKey,
       recentBlockhash: latestBlockhash.blockhash,
       instructions: txInstructions
   }).compileToV0Message([lookupTable]); // 👈 NOTE: We DO include the lookup table
   const transactionWithLookupTable = new VersionedTransaction(messageWithLookupTable);
-  transactionWithLookupTable.sign([SIGNER_WALLET]);
+  transactionWithLookupTable.sign([payer]);
 
   // Step 5 - Generate and sign a transaction that DOES NOT use a lookup table
   const messageWithoutLookupTable = new TransactionMessage({
-      payerKey: SIGNER_WALLET.publicKey,
+      payerKey: payer.publicKey,
       recentBlockhash: latestBlockhash.blockhash,
       instructions: txInstructions
   }).compileToV0Message(); // 👈 NOTE: We do NOT include the lookup table
   const transactionWithoutLookupTable = new VersionedTransaction(messageWithoutLookupTable);
-  transactionWithoutLookupTable.sign([SIGNER_WALLET]);
+  transactionWithoutLookupTable.sign([payer]);
 
   console.log("   ✅ - Compiled transactions");
 
@@ -152,9 +152,9 @@ async function compareTxSize() {
 
 (async () => {
   //await createLookupTable();
+  //await addAddressesToTable();
   //await findAddressesInTable();
-  addAddressesToTable();
-  //compareTxSize();
+  compareTxSize();
 })();
 
 
