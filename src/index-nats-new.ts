@@ -57,10 +57,11 @@ const swap = async (type:string, tokenMint: string, amount: number, slippage: nu
     mintDesired,
     amount,
     poolInfo,
-    0.0005 * LAMPORTS_PER_SOL, // Prioritization fee, now set to (0.0005 SOL)
+    0.0001 * LAMPORTS_PER_SOL, // Prioritization fee, now set to (0.0005 SOL)
     useVersionedTransaction,
     'in',
-    slippage // Slippage
+    slippage, // Slippage
+    0.0001
   )
 
   if (executeSwap) {

@@ -6,6 +6,8 @@ import {
   VersionedTransaction,
   TransactionMessage,
   GetProgramAccountsResponse,
+  SystemProgram,
+  LAMPORTS_PER_SOL,
 } from '@solana/web3.js'
 import {
   Liquidity,
@@ -27,12 +29,15 @@ import base58 from 'bs58'
 import { existsSync } from 'fs'
 import { readFile, writeFile } from 'fs/promises'
 
+import { JitoJsonRpcClient } from 'jito-js-rpc'
+
 class RaydiumSwap {
   static RAYDIUM_V4_PROGRAM_ID = '675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8'
 
   allPoolKeysJson: LiquidityPoolJsonInfo[]
   connection: Connection
   wallet: Wallet
+  jitoTipAccount: PublicKey
 
   constructor(RPC_URL: string, WALLET_PRIVATE_KEY: string) {
     this.connection = new Connection(RPC_URL, { commitment: 'confirmed' })
@@ -43,6 +48,10 @@ class RaydiumSwap {
     try {
       if (existsSync('pools.json')) {
         this.allPoolKeysJson = JSON.parse((await readFile('pools.json')).toString())
+        const jitoClient = new JitoJsonRpcClient('https://mainnet.block-engine.jito.wtf/api/v1', "");
+        const randomTipAccount = await jitoClient.getRandomTipAccount();
+        console.log('Got JITO random tip account:', randomTipAccount);
+        this.jitoTipAccount = new PublicKey(randomTipAccount);
         return
       }
 
@@ -182,7 +191,8 @@ class RaydiumSwap {
     maxLamports: number = 100000,
     useVersionedTransaction = true,
     fixedSide: 'in' | 'out' = 'in',
-    slippage: number = 5
+    slippage: number = 5,
+    jitoTip: number = 0.0001
   ): Promise<Transaction | VersionedTransaction> {
     const directionIn = poolKeys.quoteMint.toString() == toToken
     const { minAmountOut, amountIn } = await this.calcAmountOut(poolKeys, amount, slippage, directionIn)
@@ -211,6 +221,14 @@ class RaydiumSwap {
 
     const recentBlockhashForSwap = await this.connection.getLatestBlockhash()
     const instructions = swapTransaction.innerTransactions[0].instructions.filter(Boolean)
+
+    // add JITO tip
+    const transferInstruction = SystemProgram.transfer({
+      fromPubkey: this.wallet.publicKey,
+      toPubkey: this.jitoTipAccount,
+      lamports: jitoTip * LAMPORTS_PER_SOL,
+    })
+    instructions.push(transferInstruction)
 
     if (useVersionedTransaction) {
       const versionedTransaction = new VersionedTransaction(
